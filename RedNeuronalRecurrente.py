@@ -7,18 +7,18 @@ import config
 class RNN():
     def __init__(self):
         self.model = Sequential()
-        self.model.add(Input(shape=(config.time_step, 104)))
+        self.model.add(Input(shape=(config.time_step, 56)))
         self.model.add(LSTM(100, return_sequences=True))
         self.model.add(Dropout(0.2))
-        self.model.add(LSTM(50, return_sequences=True))
+        self.model.add(LSTM(100, return_sequences=True))
         self.model.add(Dropout(0.2))
-        self.model.add(LSTM(50, return_sequences=True))
+        self.model.add(LSTM(100, return_sequences=True))
         self.model.add(Dropout(0.2))
-        self.model.add(LSTM(50, return_sequences=True))
+        self.model.add(LSTM(100, return_sequences=True))
         self.model.add(Dropout(0.2))
-        self.model.add(LSTM(50, return_sequences=True))
+        self.model.add(LSTM(100, return_sequences=True))
         self.model.add(Dropout(0.2))
-        self.model.add(LSTM(50, return_sequences=False))
+        self.model.add(LSTM(100, return_sequences=False))
         self.model.add(Dropout(0.2))
 
         # Añadir capas densas
