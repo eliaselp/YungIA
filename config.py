@@ -17,12 +17,12 @@ incluir_precio_actual=False
 
 size=1000
 temporalidad="1hour"
-tiempo_espera=10 #segundos
+tiempo_espera=3 #segundos
 
 
 #CONFIG RED NEURONAL RECURRENTE
 batch_size=1
-epochs=3
+epochs=5
 
 time_step=500
 predict_step=3

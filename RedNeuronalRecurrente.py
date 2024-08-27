@@ -26,25 +26,10 @@ class RNN():
         self.model.add(Dense(50, activation='relu'))
         self.model.add(Dense(25, activation='relu'))
         self.model.add(Dense(1))
-        
         '''
-            LSTM(50): Añade una capa LSTM con 50 unidades (neuronas).
-            return_sequences=True: Indica que la capa LSTM debe devolver la secuencia completa de salida en 
-                lugar de solo el último valor. Esto es útil cuando se tienen múltiples capas LSTM.
-            input_shape=(time_step, X_train.shape[2]): Define la forma de entrada de los datos. 
-                time_step es el número de pasos de tiempo (ventana de tiempo) y X_train.shape[2] es el número de características (en este caso, 5: open, high, low, close, volume)
-        
-            LSTM(50): Añade otra capa LSTM con 50 unidades.
-            return_sequences=False: Indica que esta capa LSTM debe devolver solo 
-                el último valor de la secuencia, no la secuencia completa.
-        
-            Dense(25): Añade una capa densa con 25 neuronas. Esta capa toma la salida de la última 
-                capa LSTM y la procesa.
-
             Dense(1): Añade una capa densa con una sola neurona. Esta es la capa de 
             salida que predice el precio de cierre.
         '''
-        # Compilar el modelo
         self.model.compile(optimizer='adam', loss='mean_squared_error')
         '''
             optimizer=‘adam’: Utiliza el optimizador Adam, que es un método de optimización eficiente y 

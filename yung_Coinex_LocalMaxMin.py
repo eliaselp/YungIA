@@ -50,7 +50,7 @@ class SwingTradingBot:
 
     def predecir(self, data):
         if str(data)!=self.last_data:
-            if config.reset_model !=0 and self.cant_trainings % config.reset_model == 0:
+            if config.reset_model != 0 and self.cant_trainings % config.reset_model == 0:
                 self.modelo=RNN()
                 self.nuevo = True
 
@@ -98,7 +98,8 @@ class SwingTradingBot:
         #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
         nueva=False
-        s=f"[#] Analisis # {self.analisis}\n"
+        s=f"[#] Entrenamiento # {self.cant_trainings}\n"
+        s+=f"[#] Analisis # {self.analisis}\n"
         self.analisis+=1
         s+=f"[#] OPERACION ACTUAL: {self.current_operation}\n"
         s+=f"[#] GANANCIA ACTUAL: {self.ganancia}\n"
@@ -239,7 +240,6 @@ class SwingTradingBot:
         ohlcv_df = ohlcv_df.drop('created_at', axis=1)
         if config.incluir_precio_actual==False:
             ohlcv_df = ohlcv_df.drop(ohlcv_df.index[-1])
-
         ohlcv_df['RSI'] = ta.rsi(ohlcv_df['close'],length=15)
 
         new_columns = pd.DataFrame()
@@ -292,16 +292,16 @@ def run_bot():
     # Iniciar el bot
     while True:
         error=False
-        #try:
-        print("\nPROCESANDO ANALISIS...")
-        s=bot.trade()
-        clear_console()
-        update_text_code(mensaje=s)
-        print(s)
-        #except Exception as e:
-        #    clear_console()
-        #    print(f"Error: {str(e)}\n")
-        #    error=True
+        try:
+            print("\nPROCESANDO ANALISIS...")
+            s=bot.trade()
+            clear_console()
+            update_text_code(mensaje=s)
+            print(s)
+        except Exception as e:
+            clear_console()
+            print(f"Error: {str(e)}\n")
+            error=True
         print("Esperando para el próximo análisis...")
         if error:
             tiempo_espera=1
