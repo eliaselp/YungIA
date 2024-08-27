@@ -9,14 +9,14 @@ ENVIO_MAIL=True
 email="liranzaelias@gmail.com"
 Operar=False
 
-#url_base = "https://monitoreo.pythonanywhere.com/"
-url_base = "http://localhost:8000/"
+url_base = "https://yungia.ddns.net/"
+#url_base = "http://localhost:8000/"
 
 incluir_precio_actual=False
 
 
 size=1000
-temporalidad="1min"
+temporalidad="1hour"
 tiempo_espera=10 #segundos
 
 
@@ -25,6 +25,6 @@ batch_size=1
 epochs=3
 
 time_step=500
-predict_step=5
+predict_step=3
 
-reset_model = 100
+reset_model = 0
