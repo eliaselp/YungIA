@@ -22,7 +22,7 @@ tiempo_espera=3 #segundos
 
 #CONFIG RED NEURONAL RECURRENTE
 batch_size=1
-epochs=5
+epochs=1
 
 time_step=500
 predict_step=3
