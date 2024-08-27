@@ -247,12 +247,6 @@ class SwingTradingBot:
         for i in range(5,101):
             new_columns[f'EMA-{i}'] = ta.ema(ohlcv_df['close'], length=i)
         ohlcv_df = pd.concat([ohlcv_df, new_columns], axis=1)
-
-        new_columns = pd.DataFrame()
-        # SMA
-        for i in range(5, 101):
-            new_columns[f'SMA-{i}'] = ta.sma(ohlcv_df['close'], length=i)
-        ohlcv_df = pd.concat([ohlcv_df, new_columns], axis=1)
         
         # ATR
         ohlcv_df['ATR'] = ta.atr(ohlcv_df['high'], ohlcv_df['low'], ohlcv_df['close'])
