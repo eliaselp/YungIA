@@ -36,7 +36,6 @@ def get_data_set():
     ohlcv_df = ohlcv_df.drop('timestamp', axis=1)
 
     print(ohlcv_df)
-    input()
 
     return ohlcv_df
 
