@@ -50,17 +50,22 @@ class SwingTradingBot:
 
     def predecir(self, data):
         if str(data)!=self.last_data:
-            if config.reset_model != 0 and self.cant_trainings % config.reset_model == 0:
-                self.modelo=RNN()
-                self.nuevo = True
+            
+            #if config.reset_model != 0 and self.cant_trainings % config.reset_model == 0:
+            #    self.modelo=RNN()
+            #    self.nuevo = True
 
             self.last_data=str(data)
             if self.nuevo == False:
                 data = data.iloc[data.shape[0]-config.time_step-config.predict_step-3:,:]
             else:
                 self.nuevo = False
+            
+            #Escalar los datos
             scaled_data=RNN.process_data(data)
+            #separa datos de entrenamiento y prueba
             X_train,X_test,y_train,y_test,y_no_scaled=RNN.train_test_split(scaled_data,data,porciento_train=0.8)
+            
             self.modelo.train(X_train=X_train,y_train=y_train)
             self.cant_trainings += 1
             predictions,loss=self.modelo.prediccion(X_test=X_test,y_test=y_test,y_no_scaled=y_no_scaled)
@@ -235,9 +240,11 @@ class SwingTradingBot:
         ohlcv_df['low'] = pd.to_numeric(ohlcv_df['low'])
         ohlcv_df['open'] = pd.to_numeric(ohlcv_df['open'])
         ohlcv_df['volume'] = pd.to_numeric(ohlcv_df['volume'])
+
         self.current_price = ohlcv_df['close'].iloc[-1]
         ohlcv_df = ohlcv_df.drop('market', axis=1)
         ohlcv_df = ohlcv_df.drop('created_at', axis=1)
+        ohlcv_df = ohlcv_df.drop('value', axis=1)
         if config.incluir_precio_actual==False:
             ohlcv_df = ohlcv_df.drop(ohlcv_df.index[-1])
         ohlcv_df['RSI'] = ta.rsi(ohlcv_df['close'],length=15)
@@ -263,14 +270,14 @@ class SwingTradingBot:
 
     #LISTO
     def save_state(self):
-        with open('yungIA_data.pkl', 'wb') as file:
+        with open('data.pkl', 'wb') as file:
             pickle.dump(self, file)
 
     #LISTO
     @staticmethod
     def load_state():
-        if os.path.exists('yungIA_data.pkl'):
-            with open('yungIA_data.pkl', 'rb') as file:
+        if os.path.exists('data.pkl'):
+            with open('data.pkl', 'rb') as file:
                 return pickle.load(file)
         else:
             return None
