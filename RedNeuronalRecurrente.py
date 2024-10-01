@@ -98,7 +98,7 @@ class RNN():
         #available_memory = mem.available * 0.8
 
         #section_size = int(available_memory // (X_train[0].nbytes + y_train[0].nbytes))
-        section_size = 100
+        section_size = 1000
         num_sections = len(X_train) // section_size + (1 if len(X_train) % section_size != 0 else 0)
         
 
