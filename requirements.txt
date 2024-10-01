@@ -2,3 +2,4 @@ pandas
 pandas_ta
 tensorflow
 scikit-learn
+psutil

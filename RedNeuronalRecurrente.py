@@ -3,14 +3,17 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from keras.models import Sequential
 from keras.layers import Dense, LSTM, Input, Dropout
-import config
+from keras.callbacks import ModelCheckpoint
+from sklearn.model_selection import train_test_split as tts
 
+import dill
+import config
+import os
 import pandas_ta as ta
 import psutil
 
 def get_data_set():
     ohlcv_df = pd.read_csv("BTC_USDT_ohlcv.csv")
-
 
     # Convertir las columnas de precios y volumen a numérico
     ohlcv_df['close'] = pd.to_numeric(ohlcv_df['close'])
@@ -23,7 +26,7 @@ def get_data_set():
 
     new_columns = pd.DataFrame()
     #EMA
-    for i in range(5,101,5):
+    for i in range(5,101,20):
         new_columns[f'EMA-{i}'] = ta.ema(ohlcv_df['close'], length=i)
     ohlcv_df = pd.concat([ohlcv_df, new_columns], axis=1)
     
@@ -35,30 +38,34 @@ def get_data_set():
     ohlcv_df = ohlcv_df.reset_index(drop=True)  # Reset index after dropping rows
     ohlcv_df = ohlcv_df.drop('timestamp', axis=1)
 
+
     print(ohlcv_df)
+    input()
 
     return ohlcv_df
 
 
+def build_model():
+    model = Sequential()
+    model.add(Input(shape=(config.time_step, 12)))
+    model.add(LSTM(100, return_sequences=True))
+    model.add(Dropout(0.2))
+    model.add(LSTM(100, return_sequences=True))
+    model.add(Dropout(0.2))
+    model.add(LSTM(100, return_sequences=True))
+    model.add(Dropout(0.2))
+    # Añadir capas densas
+    model.add(Dense(50, activation='relu'))
+    model.add(Dense(25, activation='relu'))
+    model.add(Dense(1))
+    model.compile(optimizer='adam', loss='mean_squared_error')
+    return model
 
 
 
 class RNN():
     def __init__(self):
-        self.model = Sequential()
-        self.model.add(Input(shape=(config.time_step, 27)))
-        self.model.add(LSTM(100, return_sequences=True))
-        self.model.add(Dropout(0.2))
-        self.model.add(LSTM(100, return_sequences=True))
-        self.model.add(Dropout(0.2))
-        self.model.add(LSTM(100, return_sequences=True))
-        self.model.add(Dropout(0.2))
-        # Añadir capas densas
-        self.model.add(Dense(50, activation='relu'))
-        self.model.add(Dense(25, activation='relu'))
-        self.model.add(Dense(1))
-        self.model.compile(optimizer='adam', loss='mean_squared_error')
-        
+        self.model = None
         #INICIANDO PRE ENTRENAMIENTO CON DATOS HISTORICOS    
         print("obteniendo datos de csv")
         data = get_data_set()    
@@ -70,7 +77,60 @@ class RNN():
         X_train,X_test,y_train,y_test,y_no_scaled=RNN.train_test_split(data_scaled,data,porciento_train=0.8)
 
         print("Entrenando modelo")
-        self.train(X_train=X_train,y_train=y_train)
+        self.pre_train(X_train=X_train,y_train=y_train)
+
+
+
+    def pre_train(self, X_train, y_train):
+        last_training_path = 'last_training.txt'
+        current_section = 1
+
+        # Verificar si existe un modelo preentrenado
+        self.load_state_model()
+        if self.model == None:
+            self.model = build_model()
+        else:    
+            if os.path.exists(last_training_path):
+                with open(last_training_path, 'r') as f:
+                    current_section = int(f.read())
+
+        #mem = psutil.virtual_memory()
+        #available_memory = mem.available * 0.8
+
+        #section_size = int(available_memory // (X_train[0].nbytes + y_train[0].nbytes))
+        section_size = 100
+        num_sections = len(X_train) // section_size + (1 if len(X_train) % section_size != 0 else 0)
+        
+
+        for i in range(current_section, num_sections+1):
+            print(f"Entrenamiento: {i}/{num_sections}")
+            start_idx = i * section_size
+            end_idx = min((i + 1) * section_size, len(X_train))
+            
+            X_section = np.array(X_train[start_idx:end_idx], dtype=np.float64)
+            y_section = np.array(y_train[start_idx:end_idx], dtype=np.float64)
+            
+            # Guardar el número de la sección actual antes de entrenar
+            with open(last_training_path, 'w') as f:
+                f.write(str(i))
+            
+            self.model.fit(X_section, y_section, batch_size=config.batch_size, epochs=config.epochs)
+            
+            self.save_state_model()
+
+
+     #LISTO
+    def save_state_model(self):
+        with open('modelo.pkl', 'wb') as file:
+            dill.dump(self.model, file)
+        
+    #LISTO
+    def load_state_model(self):
+        if os.path.exists('modelo.pkl'):
+            with open('modelo.pkl', 'rb') as file:
+                self.model=dill.load(file)
+
+
 
 
     def train(self,X_train,y_train):
@@ -92,10 +152,6 @@ class RNN():
             y_section = np.array(y_train[start_idx:end_idx], dtype=np.float64)
             self.model.fit(X_section, y_section, batch_size=config.batch_size, epochs=config.epochs)
 
-
-        #X_train = np.array(X_train, dtype=np.float32)
-        #y_train = np.array(y_train, dtype=np.float32)
-        #self.model.fit(X_train, y_train, batch_size=config.batch_size, epochs=config.epochs)
 
 
 
@@ -130,18 +186,18 @@ class RNN():
     
     @staticmethod
     def train_test_split(dataset,no_scaled_data,porciento_train):
-        dataX, dataY,y_no_scaled = [], [], []
-        for i in range(len(dataset)-config.time_step-config.predict_step):
-            a = dataset[i:(i+config.time_step), :]
+        # Divide los datos en entrenamiento y prueba, preparando serie temporal
+        dataX, dataY, y_no_scaled = [], [], []
+        for i in range(len(dataset) - config.time_step - config.predict_step):
+            a = dataset[i:(i + config.time_step), :]
             dataX.append(a)
             dataY.append(dataset[i + config.time_step + config.predict_step - 1, 0])  # Precio de cierre de la última vela en la ventana de predicción
             y_no_scaled.append(no_scaled_data.iloc[i + config.time_step + config.predict_step - 1, 0])
-        # Divide los datos en entrenamiento y prueba
-        train_size = int(len(dataX) * porciento_train)
-        X_train, X_test = dataX[:train_size], dataX[train_size:]
-        y_train, y_test = dataY[:train_size], dataY[train_size:]
-        y_no_scaled=y_no_scaled[train_size:]
-        return X_train,X_test,y_train,y_test,y_no_scaled
+        # Utiliza train_test_split de sklearn
+        X_train, X_test, y_train, y_test = tts(dataX, dataY, train_size=porciento_train, random_state=42)
+    
+        y_no_scaled_test = y_no_scaled[len(y_train):]
+        return X_train,X_test,y_train,y_test,y_no_scaled_test
     
 
     @staticmethod
