@@ -3,3 +3,4 @@ pandas_ta
 tensorflow
 scikit-learn
 psutil
+dill
