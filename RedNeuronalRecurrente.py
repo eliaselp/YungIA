@@ -68,23 +68,24 @@ class RNN():
         #INICIANDO PRE ENTRENAMIENTO CON DATOS HISTORICOS    
         self.load_state_model()
     
-        print("obteniendo datos de csv")
-        data = get_data_set()    
-        
-        print("Escalando los datos")
-        data_scaled = RNN.process_data(data)
-        
-        print("Separando los datos en entrenamiento y prueba")
-        X_train,X_test,y_train,y_test,y_no_scaled=RNN.train_test_split(data_scaled,data,porciento_train=0.95)
-        
         if self.model is None:
             self.model = build_model()
+            print("obteniendo datos de csv")
+            data = get_data_set()    
+            
+            print("Escalando los datos")
+            data_scaled = RNN.process_data(data)
+            
+            print("Separando los datos en entrenamiento y prueba")
+            X_train,X_test,y_train,y_test,y_no_scaled=RNN.train_test_split(data_scaled,data,porciento_train=0.95)
+            
+            
             print("Entrenando modelo")
             self.pre_train(X_train=X_train,y_train=y_train)
         else:
             print("YA EL MODELO EXISTE")
-            predictions,loss=self.prediccion(X_test=X_test,y_test=y_test,y_no_scaled=y_no_scaled)
-            print(f"Indice de error: {loss}")
+            #predictions,loss=self.prediccion(X_test=X_test,y_test=y_test,y_no_scaled=y_no_scaled)
+            #print(f"Indice de error: {loss}")
             input("\n[#] Precione enter para continuar")
             #AQUI VOY A HACER LAS PRUEBAS DEL MODELO CON MATPLOTLIB
             pass
