@@ -64,28 +64,30 @@ class SwingTradingBot:
             #Escalar los datos
             scaled_data=RNN.process_data(data)
             #separa datos de entrenamiento y prueba
-            X_train,X_test,y_train,y_test,y_no_scaled=RNN.train_test_split(scaled_data,data,porciento_train=0.8)
+            X_train,X_test,y_train,y_test,y_no_scaled=RNN.train_test_split(scaled_data,data,porciento_train=0.95)
             
             self.modelo.train(X_train=X_train,y_train=y_train)
             self.cant_trainings += 1
-            predictions,loss=self.modelo.prediccion(X_test=X_test,y_test=y_test,y_no_scaled=y_no_scaled)
+
+            predictions,self.last_loss=self.modelo.prediccion(X_test=X_test,y_test=y_test,y_no_scaled=y_no_scaled)
+            
             #---------------------------------------------------------------
             X_test=self.modelo.get_test_data(scaled_data[-config.time_step-config.predict_step-1:,:])
             predictions,loss2=self.modelo.prediccion(X_test=X_test,y_test=data,y_no_scaled=data.iloc[-config.time_step-config.predict_step-1:,0],evalua=False)
             
             self.last_prediccion=predictions[0, 0]
-            self.last_loss=loss
+            
             predictions=predictions[0, 0]
             
             if predictions > data.iloc[-1,0]:
                 self.last_patron="LONG"
-                return "LONG",loss,predictions
+                return "LONG",self.last_loss,predictions
             elif predictions < data.iloc[-1,0]:
                 self.last_patron="SHORT"
-                return "SHORT",loss,predictions
+                return "SHORT",self.last_loss,predictions
             else:
                 self.last_patron="Lateralizacion"
-                return "Lateralizacion",loss,predictions
+                return "Lateralizacion",self.last_loss,predictions
         else:
             return self.last_patron,self.last_loss,self.last_prediccion
 
@@ -251,7 +253,7 @@ class SwingTradingBot:
 
         new_columns = pd.DataFrame()
         #EMA
-        for i in range(5,101):
+        for i in range(5,101,20):
             new_columns[f'EMA-{i}'] = ta.ema(ohlcv_df['close'], length=i)
         ohlcv_df = pd.concat([ohlcv_df, new_columns], axis=1)
         
@@ -270,14 +272,14 @@ class SwingTradingBot:
 
     #LISTO
     def save_state(self):
-        with open('data.pkl', 'wb') as file:
+        with open('00_data.pkl', 'wb') as file:
             pickle.dump(self, file)
 
     #LISTO
     @staticmethod
     def load_state():
-        if os.path.exists('data.pkl'):
-            with open('data.pkl', 'rb') as file:
+        if os.path.exists('00_data.pkl'):
+            with open('00_data.pkl', 'rb') as file:
                 return pickle.load(file)
         else:
             return None

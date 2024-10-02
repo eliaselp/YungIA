@@ -40,7 +40,6 @@ def get_data_set():
 
 
     print(ohlcv_df)
-    input()
 
     return ohlcv_df
 
@@ -67,6 +66,8 @@ class RNN():
     def __init__(self):
         self.model = None
         #INICIANDO PRE ENTRENAMIENTO CON DATOS HISTORICOS    
+        self.load_state_model()
+    
         print("obteniendo datos de csv")
         data = get_data_set()    
         
@@ -74,60 +75,54 @@ class RNN():
         data_scaled = RNN.process_data(data)
         
         print("Separando los datos en entrenamiento y prueba")
-        X_train,X_test,y_train,y_test,y_no_scaled=RNN.train_test_split(data_scaled,data,porciento_train=0.8)
-
-        print("Entrenando modelo")
-        self.pre_train(X_train=X_train,y_train=y_train)
+        X_train,X_test,y_train,y_test,y_no_scaled=RNN.train_test_split(data_scaled,data,porciento_train=0.95)
+        
+        if self.model is None:
+            self.model = build_model()
+            print("Entrenando modelo")
+            self.pre_train(X_train=X_train,y_train=y_train)
+        else:
+            print("YA EL MODELO EXISTE")
+            predictions,loss=self.prediccion(X_test=X_test,y_test=y_test,y_no_scaled=y_no_scaled)
+            print(f"Indice de error: {loss}")
+            input("\n[#] Precione enter para continuar")
+            #AQUI VOY A HACER LAS PRUEBAS DEL MODELO CON MATPLOTLIB
+            pass
+            
 
 
 
     def pre_train(self, X_train, y_train):
-        last_training_path = 'last_training.txt'
-        current_section = 1
-
-        # Verificar si existe un modelo preentrenado
-        self.load_state_model()
-        if self.model == None:
-            self.model = build_model()
-        else:    
-            if os.path.exists(last_training_path):
-                with open(last_training_path, 'r') as f:
-                    current_section = int(f.read())
-
-        #mem = psutil.virtual_memory()
-        #available_memory = mem.available * 0.8
-
-        #section_size = int(available_memory // (X_train[0].nbytes + y_train[0].nbytes))
-        section_size = 1000
+        #OBTENER EL TAMAÑO DE LA RAM DISPONIBLE Y CALCULAR TAMAÑOS DE BLOQUES
+        mem = psutil.virtual_memory()
+        available_memory = mem.available * 0.5
+        section_size = int(available_memory // (X_train[0].nbytes + y_train[0].nbytes))
+        #section_size = 1000
+        
         num_sections = len(X_train) // section_size + (1 if len(X_train) % section_size != 0 else 0)
         
-
-        for i in range(current_section, num_sections+1):
-            print(f"Entrenamiento: {i}/{num_sections}")
+        for i in range(num_sections):
+            print(f"[##]Entrenamiento: {i+1}/{num_sections}")
             start_idx = i * section_size
-            end_idx = min((i + 1) * section_size, len(X_train))
+            end_idx = min((i + 1) * section_size, len(X_train)-1)
             
             X_section = np.array(X_train[start_idx:end_idx], dtype=np.float64)
             y_section = np.array(y_train[start_idx:end_idx], dtype=np.float64)
-            
-            # Guardar el número de la sección actual antes de entrenar
-            with open(last_training_path, 'w') as f:
-                f.write(str(i))
-            
+                
             self.model.fit(X_section, y_section, batch_size=config.batch_size, epochs=config.epochs)
             
-            self.save_state_model()
+        self.save_state_model()
 
 
      #LISTO
     def save_state_model(self):
-        with open('modelo.pkl', 'wb') as file:
+        with open('00_modelo.pkl', 'wb') as file:
             dill.dump(self.model, file)
         
     #LISTO
     def load_state_model(self):
-        if os.path.exists('modelo.pkl'):
-            with open('modelo.pkl', 'rb') as file:
+        if os.path.exists('00_modelo.pkl'):
+            with open('00_modelo.pkl', 'rb') as file:
                 self.model=dill.load(file)
 
 
@@ -206,6 +201,9 @@ class RNN():
         for i in range(len(dataset)-config.time_step-config.predict_step):
             a = dataset[i:(i+config.time_step), :]
             dataX.append(a)
+
+        print(dataX)
+        input()
         return dataX
 
 
