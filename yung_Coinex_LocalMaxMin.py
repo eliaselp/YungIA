@@ -10,9 +10,9 @@ import pandas_ta as ta
 from client import RequestsClient
 from RedNeuronalRecurrente import RNN
 from correo import enviar_correo
-from monitor import update_text_code,post_action
+from monitor import update_text_code,post_action,update_test_predictions
 import config
-
+import monitor
 # from IPython.display import clear_output
 
 
@@ -29,7 +29,12 @@ class SwingTradingBot:
     def __init__(self):
         self.nuevo = True
         self.last_data=None#Esto es para que controlar el momento de entrenamiento del modelo        
+        
         self.ganancia=0
+        self.balance_usdt = 100
+        self.balance_btc = 0
+        self.game_short = 0
+
         self.current_operation=None
         self.current_price=None
         self.open_price=None
@@ -45,27 +50,26 @@ class SwingTradingBot:
         self.error_cuadratico_medio=None
         self.last_prediccion=None
         self.last_loss=None
+
+        self.public_key_temp_api = None
         self.save_state()
 
 
     def predecir(self, data):
         if str(data)!=self.last_data:
-            
-            #if config.reset_model != 0 and self.cant_trainings % config.reset_model == 0:
-            #    self.modelo=RNN()
-            #    self.nuevo = True
 
             self.last_data=str(data)
             if self.nuevo == False:
-                data = data.iloc[data.shape[0]-config.time_step-config.predict_step-3:,:]
+                data = data.iloc[data.shape[0]-config.time_step-config.predict_step-100:,:]
             else:
                 self.nuevo = False
             
             #Escalar los datos
             scaled_data=RNN.process_data(data)
             #separa datos de entrenamiento y prueba
-            X_train,X_test,y_train,y_test,y_no_scaled=RNN.train_test_split(scaled_data,data,porciento_train=0.95)
+            X_train,X_test,y_train,y_test,y_no_scaled=RNN.train_test_split(scaled_data,data,porciento_train=0.999999999999999)
             
+            #if self.cant_trainings == 1 or self.cant_trainings % config.step_training == 0:
             self.modelo.train(X_train=X_train,y_train=y_train)
             self.cant_trainings += 1
 
@@ -79,6 +83,8 @@ class SwingTradingBot:
             
             predictions=predictions[0, 0]
             
+            print("=======>>>>>>> Enviando prediccion")
+            self.public_key_temp_api = update_test_predictions(prediction=predictions,current_price=self.current_price,predict_step=config.predict_step,analisis=self.cant_trainings,public_key_temp_api=self.public_key_temp_api)
             if predictions > data.iloc[-1,0]:
                 self.last_patron="LONG"
                 return "LONG",self.last_loss,predictions
@@ -92,6 +98,7 @@ class SwingTradingBot:
             return self.last_patron,self.last_loss,self.last_prediccion
 
 
+    
     #ESTRATEGIA LISTA
     def trade(self):
         patron=''
@@ -109,13 +116,11 @@ class SwingTradingBot:
         s+=f"[#] Analisis # {self.analisis}\n"
         self.analisis+=1
         s+=f"[#] OPERACION ACTUAL: {self.current_operation}\n"
-        s+=f"[#] GANANCIA ACTUAL: {self.ganancia}\n"
+        s+=f"[#] GANANCIA ACTUAL: {self.ganancia} [PIPS]\n"
         s+=f"[#] PRECIO BTC-USDT: {self.current_price}\n"
         s+=f"[###] PREDICCION: {prediction}\n"
         s+=f"[#] ERROR CUADRATICO MEDIO: {loss}\n"
         s+=f"[#] PATRON: {patron}\n"
-
-        balance=7
 
         if self.current_operation == "LONG":
             if patron in ["SHORT","Lateralizacion"]:
@@ -125,6 +130,7 @@ class SwingTradingBot:
                 s+=self.mantener(self.current_price)
                 #============================================
         elif self.current_operation == "SHORT":
+            s+=f"[#] INVERTIDO EN SHORT: {self.game_short}\n"
             if patron in ["LONG","Lateralizacion"]:
                 s+=self.close_operations(self.current_price)
                 nueva=True
@@ -134,16 +140,16 @@ class SwingTradingBot:
 
                 
         if self.current_operation == None:
-            if patron=="LONG" and balance*0.9>=2:
+            if patron=="LONG" and self.balance_usdt*0.5>=2:
                 s+=self.open_long()
                 nueva=True
-            elif patron=="SHORT" and balance*0.9>=2:
+            elif patron=="SHORT" and self.balance_usdt*0.2>=2:
                 s+=self.open_short()
                 nueva=True
             else:
                 s+=self.mantener(self.current_price)
-
-        s+=f"[#] BALANCE: {balance} USDT\n"
+        s+=f"[#] BALANCE_USDT: {self.balance_usdt} USDT\n"
+        s+=f"[#] BALANCE_BTC: {self.balance_btc} BTC\n"
         s+=f"[#] OPERACIONES: {self.cant_opr}\n"
         s+=f"[#] GANADAS: {self.cant_win}\n"
         s+=f"[#] PERDIDAS: {self.cant_loss}\n"
@@ -158,6 +164,10 @@ class SwingTradingBot:
         s=""
         s+=f"[++++] CERRANDO POSICION {self.current_operation}\n"
         if self.current_operation == "LONG":
+            venta = self.calcular_usdt()
+            self.balance_usdt+=venta
+            self.balance_btc=0
+
             self.ganancia+=current_price - self.open_price
             s+=f"[#] ESTADO: {current_price - self.open_price}\n"
             if current_price - self.open_price > 0:
@@ -165,6 +175,11 @@ class SwingTradingBot:
             else:
                 self.cant_loss+=1
         else:
+            compra = self.game_short / self.current_price
+            venta = compra * self.open_price
+            self.balance_btc=0
+            self.balance_usdt+=venta
+
             self.ganancia+=self.open_price - current_price
             s+=f"[#] ESTADO: {self.open_price - current_price}\n"
             if self.open_price - current_price > 0:
@@ -176,7 +191,7 @@ class SwingTradingBot:
         self.current_operation=None
         self.save_state()
         
-        post_action(self.ganancia,self.analisis)
+        self.public_key_temp_api = post_action(self.ganancia,self.analisis,public_key_temp_api=self.public_key_temp_api)
         return s
 
     #LISTO
@@ -196,10 +211,15 @@ class SwingTradingBot:
     #LISTO
     def open_long(self,s=""):
         self.open_price=self.current_price
+
         s=""
         if self.open_price == None:
             s+=f"[++++] Error al abrir posicion en long:\n"
         else:
+            compra, pago = self.calcular_compra_btc()
+            self.balance_btc += compra
+            self.balance_usdt -= pago
+
             s+=f"[++++] ABRIENDO POSICION LONG A {self.open_price}\n"
             self.current_operation="LONG"
             self.cant_opr+=1
@@ -213,12 +233,40 @@ class SwingTradingBot:
         if self.open_price == None:
             s+=f"[++++] Error al abrir posicion en short:\n"
         else:
+            self.game_short = self.balance_usdt / 2
+            self.balance_usdt -= self.game_short
+            self.balance_btc = 0
+            
             s+=f"[++++] ABRIENDO POSICION SHORT A {self.open_price}\n"
+            s+=f"[#] INVERTIDO EN SHORT: {self.game_short}\n"
             self.current_operation="SHORT"
             self.cant_opr+=1
             self.save_state()
         return s
 
+    def calcular_compra_btc(self):
+        """
+        Calcula la cantidad de BTC que se puede comprar con una cantidad de USDT.
+        :param cantidad_usdt: Cantidad de USDT disponible
+        :param precio_btc: Precio de 1 BTC en USDT
+        :return: Cantidad de BTC que se puede comprar
+        """
+
+        pago = (self.balance_usdt/2)
+        compra = pago / self.current_price
+
+        return compra, pago
+
+
+
+    def calcular_usdt(self):
+        """
+        Calcula la cantidad de USDT que se puede obtener vendiendo una cantidad de BTC.
+        :param cantidad_btc: Cantidad de BTC disponible
+        :param precio_btc: Precio de 1 BTC en USDT
+        :return: Cantidad de USDT que se puede obtener
+        """
+        return self.balance_btc * self.current_price
 
 
     #LISTO
@@ -249,6 +297,13 @@ class SwingTradingBot:
         ohlcv_df = ohlcv_df.drop('value', axis=1)
         if config.incluir_precio_actual==False:
             ohlcv_df = ohlcv_df.drop(ohlcv_df.index[-1])
+
+        
+        # Reorganizar las columnas
+        column_order = ['open', 'high', 'low', 'close', 'volume']
+        ohlcv_df= ohlcv_df[column_order]
+        
+        '''
         ohlcv_df['RSI'] = ta.rsi(ohlcv_df['close'],length=15)
 
         new_columns = pd.DataFrame()
@@ -262,6 +317,8 @@ class SwingTradingBot:
         
         # Eliminar las primeras filas para evitar NaNs
         ohlcv_df = ohlcv_df.dropna()
+        '''
+
         '''
         ohlcv_df = ta.add_all_ta_features(
             ohlcv_df, open="open", high="high", low="low", close="close", volume="volume", fillna=True
@@ -295,16 +352,16 @@ def run_bot():
     # Iniciar el bot
     while True:
         error=False
-        try:
-            print("\nPROCESANDO ANALISIS...")
-            s=bot.trade()
-            clear_console()
-            update_text_code(mensaje=s)
-            print(s)
-        except Exception as e:
-            clear_console()
-            print(f"Error: {str(e)}\n")
-            error=True
+        #try:
+        print("\nPROCESANDO ANALISIS...")
+        s=bot.trade()
+        clear_console()
+        bot.public_key_temp_api = update_text_code(mensaje=s,public_key_temp_api=bot.public_key_temp_api)
+        print(s)
+        #except Exception as e:
+        #    clear_console()
+        #    print(f"Error: {str(e)}\n")
+        #    error=True
         print("Esperando para el próximo análisis...")
         if error:
             tiempo_espera=1

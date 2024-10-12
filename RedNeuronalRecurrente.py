@@ -13,7 +13,7 @@ import pandas_ta as ta
 import psutil
 
 def get_data_set():
-    ohlcv_df = pd.read_csv("BTC_USDT_ohlcv.csv")
+    ohlcv_df = pd.read_csv("btc_1h.csv")
 
     # Convertir las columnas de precios y volumen a numérico
     ohlcv_df['close'] = pd.to_numeric(ohlcv_df['close'])
@@ -22,43 +22,49 @@ def get_data_set():
     ohlcv_df['open'] = pd.to_numeric(ohlcv_df['open'])
     ohlcv_df['volume'] = pd.to_numeric(ohlcv_df['volume'])
     
-    ohlcv_df['RSI'] = ta.rsi(ohlcv_df['close'],length=15)
+    #ohlcv_df['RSI'] = ta.rsi(ohlcv_df['close'],length=15)
 
-    new_columns = pd.DataFrame()
+    #new_columns = pd.DataFrame()
     #EMA
-    for i in range(5,101,20):
-        new_columns[f'EMA-{i}'] = ta.ema(ohlcv_df['close'], length=i)
-    ohlcv_df = pd.concat([ohlcv_df, new_columns], axis=1)
+    #for i in range(5,101,20):
+    #    new_columns[f'EMA-{i}'] = ta.ema(ohlcv_df['close'], length=i)
+    #ohlcv_df = pd.concat([ohlcv_df, new_columns], axis=1)
     
     # ATR
-    ohlcv_df['ATR'] = ta.atr(ohlcv_df['high'], ohlcv_df['low'], ohlcv_df['close'])
+    #ohlcv_df['ATR'] = ta.atr(ohlcv_df['high'], ohlcv_df['low'], ohlcv_df['close'])
     
     # Eliminar las primeras filas para evitar NaNs
     ohlcv_df = ohlcv_df.dropna()
     ohlcv_df = ohlcv_df.reset_index(drop=True)  # Reset index after dropping rows
-    ohlcv_df = ohlcv_df.drop('timestamp', axis=1)
-
+    ohlcv_df = ohlcv_df.drop('datetime', axis=1)
 
     print(ohlcv_df)
+    
 
     return ohlcv_df
 
 
 def build_model():
-    model = Sequential()
-    model.add(Input(shape=(config.time_step, 12)))
-    model.add(LSTM(100, return_sequences=True))
-    model.add(Dropout(0.2))
-    model.add(LSTM(100, return_sequences=True))
-    model.add(Dropout(0.2))
-    model.add(LSTM(100, return_sequences=True))
-    model.add(Dropout(0.2))
-    # Añadir capas densas
-    model.add(Dense(50, activation='relu'))
-    model.add(Dense(25, activation='relu'))
-    model.add(Dense(1))
-    model.compile(optimizer='adam', loss='mean_squared_error')
-    return model
+    regressor = Sequential()
+    regressor.add(Input(shape=(config.time_step, 5)))
+    regressor.add(LSTM(units = 50,return_sequences=True,))
+    regressor.add(Dropout(rate = 0.2))
+
+    regressor.add(LSTM(units = 50,return_sequences=True,))
+    regressor.add(Dropout(rate = 0.2))
+
+    regressor.add(LSTM(units = 50, return_sequences=True,))
+    regressor.add(Dropout(rate = 0.2))
+
+
+    regressor.add(LSTM(units = 50,return_sequences=False,))
+    regressor.add(Dropout(rate = 0.2))
+    #FINAL - OUTPUT LAYER
+    regressor.add(Dense(units = 1))
+    regressor.compile(optimizer = "adam", loss  = "mean_squared_error")
+    return regressor
+    
+    
 
 
 
@@ -68,7 +74,7 @@ class RNN():
         #INICIANDO PRE ENTRENAMIENTO CON DATOS HISTORICOS    
         self.load_state_model()
     
-        if self.model is None:
+        if self.model is None and config.entrenar_dataset:
             self.model = build_model()
             print("obteniendo datos de csv")
             data = get_data_set()    
@@ -77,16 +83,17 @@ class RNN():
             data_scaled = RNN.process_data(data)
             
             print("Separando los datos en entrenamiento y prueba")
-            X_train,X_test,y_train,y_test,y_no_scaled=RNN.train_test_split(data_scaled,data,porciento_train=0.95)
-            
-            
+            X_train,y_train,y_no_scaled=RNN.train_test_split(data_scaled,data,porciento_train=None)
+                        
             print("Entrenando modelo")
             self.pre_train(X_train=X_train,y_train=y_train)
         else:
-            print("YA EL MODELO EXISTE")
+            if self.model is None:
+                self.model = build_model()
+            #print("YA EL MODELO EXISTE")
             #predictions,loss=self.prediccion(X_test=X_test,y_test=y_test,y_no_scaled=y_no_scaled)
             #print(f"Indice de error: {loss}")
-            input("\n[#] Precione enter para continuar")
+            #input("\n[#] Precione enter para continuar")
             #AQUI VOY A HACER LAS PRUEBAS DEL MODELO CON MATPLOTLIB
             pass
             
@@ -133,10 +140,8 @@ class RNN():
         # Obtener la memoria RAM disponible
         mem = psutil.virtual_memory()
         available_memory = mem.available / 2  # Usar solo el 50% de la memoria disponible
-
         # Calcular el tamaño de la sección basado en la memoria disponible
         section_size = int(available_memory // (X_train[0].nbytes + y_train[0].nbytes))
-
         num_sections = len(X_train) // section_size + (1 if len(X_train) % section_size != 0 else 0)
         
         for i in range(num_sections):
@@ -147,7 +152,8 @@ class RNN():
             X_section = np.array(X_train[start_idx:end_idx], dtype=np.float64)
             y_section = np.array(y_train[start_idx:end_idx], dtype=np.float64)
             self.model.fit(X_section, y_section, batch_size=config.batch_size, epochs=config.epochs)
-
+            
+        self.save_state_model()
 
 
 
@@ -190,10 +196,12 @@ class RNN():
             dataY.append(dataset[i + config.time_step + config.predict_step - 1, 0])  # Precio de cierre de la última vela en la ventana de predicción
             y_no_scaled.append(no_scaled_data.iloc[i + config.time_step + config.predict_step - 1, 0])
         # Utiliza train_test_split de sklearn
-        X_train, X_test, y_train, y_test = tts(dataX, dataY, train_size=porciento_train, random_state=42)
-    
-        y_no_scaled_test = y_no_scaled[len(y_train):]
-        return X_train,X_test,y_train,y_test,y_no_scaled_test
+        if not porciento_train is None:
+            X_train, X_test, y_train, y_test = tts(dataX, dataY, train_size=porciento_train, random_state=42)
+        
+            y_no_scaled_test = y_no_scaled[len(y_train):]
+            return X_train,X_test,y_train,y_test,y_no_scaled_test
+        return dataX,dataY,y_no_scaled
     
 
     @staticmethod
@@ -202,9 +210,6 @@ class RNN():
         for i in range(len(dataset)-config.time_step-config.predict_step):
             a = dataset[i:(i+config.time_step), :]
             dataX.append(a)
-
-        print(dataX)
-        input()
         return dataX
 
 
