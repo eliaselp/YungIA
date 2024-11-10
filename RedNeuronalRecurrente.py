@@ -13,7 +13,7 @@ import pandas_ta as ta
 import psutil
 
 def get_data_set():
-    ohlcv_df = pd.read_csv("btc_1h.csv")
+    ohlcv_df = pd.read_csv("BTCUSDT_ohlcv.csv")
 
     # Convertir las columnas de precios y volumen a numérico
     ohlcv_df['close'] = pd.to_numeric(ohlcv_df['close'])
@@ -36,7 +36,7 @@ def get_data_set():
     # Eliminar las primeras filas para evitar NaNs
     ohlcv_df = ohlcv_df.dropna()
     ohlcv_df = ohlcv_df.reset_index(drop=True)  # Reset index after dropping rows
-    ohlcv_df = ohlcv_df.drop('datetime', axis=1)
+    ohlcv_df = ohlcv_df.drop('timestamp', axis=1)
 
     print(ohlcv_df)
     
@@ -103,7 +103,7 @@ class RNN():
     def pre_train(self, X_train, y_train):
         #OBTENER EL TAMAÑO DE LA RAM DISPONIBLE Y CALCULAR TAMAÑOS DE BLOQUES
         mem = psutil.virtual_memory()
-        available_memory = mem.available * 0.5
+        available_memory = mem.available * 0.8
         section_size = int(available_memory // (X_train[0].nbytes + y_train[0].nbytes))
         #section_size = 1000
         

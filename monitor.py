@@ -36,6 +36,9 @@ def dict_a_base64(diccionario):
 
 ####################################################################################################################################
 def handcheck(public_key_temp_api):
+    if config.notificar_monitoreo == False:
+        return None
+
     #crear canal de comunicacion seguro
     if public_key_temp_api is None:
         handcheck = {
@@ -67,6 +70,9 @@ def handcheck(public_key_temp_api):
 
 
 def post_action(valor,numero_analisis,public_key_temp_api):
+    if config.notificar_monitoreo == False:
+        return None    
+    
     public_key_channel = None
     try:
         public_key_channel = handcheck(public_key_temp_api)
@@ -110,6 +116,8 @@ def post_action(valor,numero_analisis,public_key_temp_api):
 
 #####################################################################################################################################################################
 def update_text_code(mensaje,public_key_temp_api):
+    if config.notificar_monitoreo == False:
+        return None
     public_key_channel = None
     try:
         public_key_channel = handcheck(public_key_temp_api)
@@ -150,6 +158,9 @@ def update_text_code(mensaje,public_key_temp_api):
 
 
 def update_test_predictions(prediction,current_price,predict_step,analisis,public_key_temp_api):
+    if config.notificar_monitoreo == False:
+        return None
+    
     public_key_channel = None
     try:
         public_key_channel = handcheck(public_key_temp_api)
