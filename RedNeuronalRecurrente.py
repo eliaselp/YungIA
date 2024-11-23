@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split as tts
 import dill
 import config
 import os
-import pandas_ta as ta
+#import pandas_ta as ta
 import psutil
 
 def get_data_set():
