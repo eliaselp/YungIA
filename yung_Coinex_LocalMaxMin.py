@@ -5,7 +5,7 @@ import sys
 import time
 import pandas as pd
 import numpy as np
-import pandas_ta as ta
+#import pandas_ta as ta
 
 from client import RequestsClient
 from RedNeuronalRecurrente import RNN
