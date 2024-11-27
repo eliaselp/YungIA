@@ -56,7 +56,7 @@ class SwingTradingBot:
 
 
     def predecir(self, data):
-        if str(data)!=self.last_data:
+        if data!=None and str(data)!=self.last_data:
 
             self.last_data=str(data)
             if self.nuevo == False:
@@ -277,11 +277,15 @@ class SwingTradingBot:
             "limit":config.size,
             "period":config.temporalidad
         }
-        response = self.client.request(
-            "GET",
-            "{url}{request_path}".format(url=self.client.url, request_path=request_path),
-            params=params,
-        )
+        try:
+            response = self.client.request(
+                "GET",
+                "{url}{request_path}".format(url=self.client.url, request_path=request_path),
+                params=params,
+            )
+        except Exception as e:
+            print(e)
+            return None
         data=response.json().get("data")
         ohlcv_df = pd.DataFrame(data)
         # Convertir las columnas de precios y volumen a numérico
