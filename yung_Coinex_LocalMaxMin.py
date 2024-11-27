@@ -56,7 +56,7 @@ class SwingTradingBot:
 
 
     def predecir(self, data):
-        if data!=None and str(data)!=self.last_data:
+        if not data is None and str(data)!=self.last_data:
 
             self.last_data=str(data)
             if self.nuevo == False:
